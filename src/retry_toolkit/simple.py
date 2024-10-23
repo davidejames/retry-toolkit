@@ -35,7 +35,27 @@ class GiveUp(Exception):
 
 
 def retry(tries=None, backoff=None, exceptions=None):
-    '''
+    '''Decorator factory, enables retries.
+
+    This is a decorator factory with some arguments to customize the retry
+    behavior. Either specify constants or callables that will return the
+    appropriate constants.
+
+    tries:   int or callable,     defaults to DEFAULT_TRIES   (default of 3)
+    backoff: numeric or callable, defaults to DEFAULT_BACKOFF (default of 0
+    exceptions: tuple of exceptions to catch, defaults to `Exception`
+
+    return value:
+    the decorator factory returns a decorator used to wrap a function
+    When called the function will return whatever it normally would
+
+    Exceptions:
+    if tries are exhausted, a `GiveUp` exception is thrown
+
+    For callables::
+    :tries      - no arguments are passed
+    :backoff    - the retry number (1 for first retry, 2 for second, ...)
+    :exceptions - no arguments are passed
 
     '''
     tries_f   = _ensure_callable(tries      , DEFAULT_TRIES  )
