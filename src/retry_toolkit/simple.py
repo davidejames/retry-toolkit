@@ -8,6 +8,7 @@ from functools import wraps
 #-------------------------------------------------------------------------------
 # Backoff time calculation functions
 #-------------------------------------------------------------------------------
+
 def exponential(n, b=0):
     def _exponential(x):
         return n*(2**x) + b
