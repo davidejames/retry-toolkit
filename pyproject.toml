@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "retry-toolkit"
 dynamic = ["version"]
-description = ''
+description = 'Yet another retry implementation.'
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
