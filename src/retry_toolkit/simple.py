@@ -1,8 +1,13 @@
+# SPDX-FileCopyrightText: 2024-present David E. James <david.eugene.james@protonmail.com>
+#
+# SPDX-License-Identifier: MIT
 
 import time
 from functools import wraps
 
+#-------------------------------------------------------------------------------
 # Backoff time calculation functions
+#-------------------------------------------------------------------------------
 def exponential(n, b=0):
     def _exponential(x):
         return n*(2**x) + b
@@ -15,6 +20,10 @@ def linear(m, b=0):
     return _linear
 
 
+#-------------------------------------------------------------------------------
+# Private Utilities
+#-------------------------------------------------------------------------------
+
 def _ensure_callable(var, default):
     if callable(var):
         return var
@@ -25,15 +34,27 @@ def _ensure_callable(var, default):
     return lambda *args, **kwargs: var
 
 
+#-------------------------------------------------------------------------------
+# Defaults for Behaviors:
+#-------------------------------------------------------------------------------
+
 DEFAULT_TRIES   = 3
 DEFAULT_BACKOFF = 0
 DEFAULT_EXC     = Exception
 SLEEP_FUNC      = time.sleep
 
+
+#-------------------------------------------------------------------------------
+# GiveUp - when retry fails:
+#-------------------------------------------------------------------------------
+
 class GiveUp(Exception):
     pass
 
 
+#-------------------------------------------------------------------------------
+# Retry Function:
+#-------------------------------------------------------------------------------
 def retry(tries=None, backoff=None, exceptions=None):
     '''Decorator factory, enables retries.
 
