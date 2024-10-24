@@ -10,16 +10,16 @@ from functools import wraps
 # Backoff time calculation functions
 #-------------------------------------------------------------------------------
 
-def linear(m: float, b: float =0):
-    def _linear(x: float) -> float:
-        return m*x + b
-    return _linear
-
-
 def constant(c: float):
     def _constant(x: float) -> float:
         return c
     return _constant
+
+
+def linear(m: float, b: float =0):
+    def _linear(x: float) -> float:
+        return m*x + b
+    return _linear
 
 
 def exponential(n: float, b: float = 0):
