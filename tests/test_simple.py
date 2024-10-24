@@ -10,10 +10,15 @@ import pytest
 # Import the things we're testing:
 #-------------------------------------------------------------------------------
 from retry_toolkit.simple import (
+    # --- basic backoff calculations
     linear,
     exponential,
+    # --- the star of the show
     retry,
+    # --- exception
     GiveUp,
+    # --- defaults
+    Defaults,
 )
 
 
@@ -66,3 +71,19 @@ def test__default__tries():
 
     assert count == 3
 
+
+def test__default__altered_module_defaults():
+    count = 0
+
+    @retry()
+    def foo():
+        nonlocal count
+        count += 1
+        raise ValueError()
+
+    Defaults.TRIES = 5
+
+    with pytest.raises(GiveUp):
+        foo()
+
+    assert count == 5

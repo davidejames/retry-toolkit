@@ -40,10 +40,11 @@ def _ensure_callable(var, default):
 # Defaults for Behaviors:
 #-------------------------------------------------------------------------------
 
-DEFAULT_TRIES   = 3
-DEFAULT_BACKOFF = 0
-DEFAULT_EXC     = Exception
-SLEEP_FUNC      = time.sleep
+class Defaults:
+    TRIES      = 3
+    BACKOFF    = 0
+    EXC        = Exception
+    SLEEP_FUNC = time.sleep
 
 
 #-------------------------------------------------------------------------------
@@ -64,8 +65,8 @@ def retry(tries=None, backoff=None, exceptions=None):
     behavior. Either specify constants or callables that will return the
     appropriate constants.
 
-    tries:   int or callable,     defaults to DEFAULT_TRIES   (default of 3)
-    backoff: numeric or callable, defaults to DEFAULT_BACKOFF (default of 0
+    tries:   int or callable,     defaults to Defaults.TRIES   (default of 3)
+    backoff: numeric or callable, defaults to Defaults.BACKOFF (default of 0
     exceptions: tuple of exceptions to catch, defaults to `Exception`
 
     return value:
@@ -81,16 +82,15 @@ def retry(tries=None, backoff=None, exceptions=None):
     :exceptions - no arguments are passed
 
     '''
-    tries_f   = _ensure_callable(tries      , DEFAULT_TRIES  )
-    backoff_f = _ensure_callable(backoff    , DEFAULT_BACKOFF)
-    exc_f     = _ensure_callable(exceptions , DEFAULT_EXC    )
-    sleep_f   = SLEEP_FUNC
-
     def _retry_wrapper(func):
         @wraps(func)
         def _retry(*args, **kwargs):
-            n_tries = tries_f()
-            exc     = exc_f()
+            tries_f   = _ensure_callable(tries      , Defaults.TRIES  )
+            backoff_f = _ensure_callable(backoff    , Defaults.BACKOFF)
+            exc_f     = _ensure_callable(exceptions , Defaults.EXC    )
+            sleep_f   = Defaults.SLEEP_FUNC
+            n_tries   = tries_f()
+            exc       = exc_f()
 
             for try_num in range(n_tries):
 
