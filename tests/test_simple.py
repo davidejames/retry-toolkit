@@ -49,5 +49,19 @@ def test__default__no_issue():
     assert foo() == 1
 
 
+def test__default__tries():
+    count = 0
 
+    @retry()
+    def foo():
+        nonlocal count
+        count += 1
+        raise ValueError()
+
+    try:
+        foo()
+    except Exception:
+        pass
+
+    assert count == 3
 
