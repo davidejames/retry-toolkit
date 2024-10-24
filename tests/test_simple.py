@@ -10,15 +10,11 @@ import pytest
 # Import the things we're testing:
 #-------------------------------------------------------------------------------
 from retry_toolkit.simple import (
-    # --- basic backoff calculations
-    linear,
+    linear,       # basic backoff calculation functions
     exponential,
-    # --- the star of the show
-    retry,
-    # --- exception
-    GiveUp,
-    # --- defaults
-    Defaults,
+    retry,        # the star of the show
+    GiveUp,       # when retries still fail
+    Defaults,     # module defaults
 )
 
 
@@ -35,6 +31,7 @@ def test__exponential():
     assert exp(3) == 16
 
 
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 def test__linear():
     lin = linear(2)
     assert lin(0) == 0
@@ -57,6 +54,7 @@ def test__default__no_issue():
     assert foo() == 1
 
 
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 def test__default__tries():
     count = 0
 
@@ -72,7 +70,8 @@ def test__default__tries():
     assert count == 3
 
 
-def test__default__altered_module_defaults():
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+def test__default__altered_module_defaults_tries():
     count = 0
 
     @retry()
@@ -81,9 +80,88 @@ def test__default__altered_module_defaults():
         count += 1
         raise ValueError()
 
+    save_tries = Defaults.TRIES
     Defaults.TRIES = 5
 
-    with pytest.raises(GiveUp):
-        foo()
+    try:
+        with pytest.raises(GiveUp):
+            foo()
+    except:
+        pass
+    finally:
+        Defaults.TRIES = save_tries
 
     assert count == 5
+
+
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+def test__default__altered_module_defaults_sleep_func():
+    count = 0
+
+    @retry()
+    def foo():
+        nonlocal count
+        count += 1
+        raise ValueError()
+
+    sleep_calls = 0
+
+    def fake_sleep(t):
+        nonlocal sleep_calls
+        sleep_calls += 1
+
+    save_sleep_f        = Defaults.SLEEP_FUNC
+    Defaults.SLEEP_FUNC = fake_sleep
+
+    try:
+        with pytest.raises(GiveUp):
+            foo()
+    except:
+        pass
+    finally:
+        Defaults.SLEEP_FUNC = save_sleep_f
+
+    assert count       == 3   # # of total tries
+    assert sleep_calls == 2   # # of re-tries
+
+
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+def test__default__altered_module_defaults_backoff():
+    count = 0
+
+    @retry()
+    def foo():
+        nonlocal count
+        count += 1
+        raise ValueError()
+
+    sleep_t       = 0.0
+    total_sleep_t = 0.0
+
+    def fake_sleep(t):
+        nonlocal sleep_t
+        nonlocal total_sleep_t
+        sleep_t = t
+        total_sleep_t += t
+
+    # setup fake sleep function again so test won't waste time
+    save_sleep_f        = Defaults.SLEEP_FUNC
+    Defaults.SLEEP_FUNC = fake_sleep
+
+    # alter backoff
+    save_backoff     = Defaults.BACKOFF
+    Defaults.BACKOFF = 1
+
+    try:
+        with pytest.raises(GiveUp):
+            foo()
+    except:
+        pass
+    finally:
+        Defaults.SLEEP_FUNC = save_sleep_f
+
+    assert count         == 3      # number of total tries
+    assert sleep_t       == 1.0    # last sleep reqested
+    assert total_sleep_t == 2.0    # total sleep request (all re-tries)
+
+
