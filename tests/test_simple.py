@@ -4,6 +4,8 @@
 
 import time
 
+import pytest
+
 #-------------------------------------------------------------------------------
 # Import the things we're testing:
 #-------------------------------------------------------------------------------
@@ -11,6 +13,7 @@ from retry_toolkit.simple import (
     linear,
     exponential,
     retry,
+    GiveUp,
 )
 
 
@@ -58,10 +61,8 @@ def test__default__tries():
         count += 1
         raise ValueError()
 
-    try:
+    with pytest.raises(GiveUp):
         foo()
-    except Exception:
-        pass
 
     assert count == 3
 
