@@ -82,9 +82,9 @@ def retry(tries=None, backoff=None, exceptions=None):
     :exceptions - no arguments are passed
 
     '''
-    def _retry_wrapper(func):
+    def _retry_decorator(func):
         @wraps(func)
-        def _retry(*args, **kwargs):
+        def _retry_wrapper(*args, **kwargs):
             # configure at call-time to allow any changes to defaults
             # to properly take effect each time func is used
             tries_f   = _ensure_callable(tries      , Defaults.TRIES  )
@@ -109,7 +109,7 @@ def retry(tries=None, backoff=None, exceptions=None):
 
             raise GiveUp()
 
-        return _retry
-    return _retry_wrapper
+        return _retry_wrapper
+    return _retry_decorator
 
 
