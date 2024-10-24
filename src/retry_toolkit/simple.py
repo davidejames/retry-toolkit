@@ -87,14 +87,12 @@ def retry(tries=None, backoff=None, exceptions=None):
         def _retry_wrapper(*args, **kwargs):
             # configure at call-time to allow any changes to defaults
             # to properly take effect each time func is used
-            tries_f   = _ensure_callable(tries      , Defaults.TRIES  )
+            n_tries_f = _ensure_callable(tries      , Defaults.TRIES  )
             backoff_f = _ensure_callable(backoff    , Defaults.BACKOFF)
             exc_f     = _ensure_callable(exceptions , Defaults.EXC    )
             sleep_f   = Defaults.SLEEP_FUNC
 
-            # no need to call these in loop below since they don't have
-            # arguments and should not change result
-            n_tries = tries_f()
+            n_tries = n_tries_f()
             exc     = exc_f()
 
             for try_num in range(n_tries):
