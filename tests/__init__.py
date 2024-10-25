@@ -1,3 +1,3 @@
-# SPDX-FileCopyrightText: 2024-present David E. James <david.eugene.james@protonmail.com>
-#
+# SPDX-FileCopyrightText: © 2024 David E. James
 # SPDX-License-Identifier: MIT
+# SPDX-FileType: SOURCE
