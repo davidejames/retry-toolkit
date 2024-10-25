@@ -1,6 +1,22 @@
 # SPDX-FileCopyrightText: © 2024 David E. James
 # SPDX-License-Identifier: MIT
 # SPDX-FileType: SOURCE
+'''A "simple" retry implementation.
+
+Retry has been done and redone many times. Here is a version that takes only
+a few arguments that are all optional but provides most of the flexibility
+seen in many implementations.
+
+It does not try to define all the different variables that may be used to
+compute backoff values, instead preferring to allow a callable that could use
+any algorithm desired to compute a backoff of which 3 very simple
+implementations are provided. Users can use these as an example to setup their
+own perfect backoff implementation (hopefully using jitter as well).
+
+Or perhaps you should not use this module as a dependency, but instead copy
+the strategy below, include it in your own codebase, and alter it to make it
+your own. MIT is a permissive license.
+'''
 
 import inspect
 import time
@@ -12,18 +28,21 @@ from functools import wraps
 #-------------------------------------------------------------------------------
 
 def constant(c: float):
+    '''Simple constant backoff. Suitable for demonstration.'''
     def _constant(x: float) -> float:
         return c
     return _constant
 
 
 def linear(m: float, b: float =0):
+    '''Linear backoff. Suitable for demonstration.'''
     def _linear(x: float) -> float:
         return m*x + b
     return _linear
 
 
 def exponential(n: float, b: float = 0):
+    '''Exponential backoff. Slightly more realistic.'''
     def _exponential(x: float) -> float:
         return n*(2**x) + b
     return _exponential
