@@ -103,7 +103,11 @@ class Defaults:
 class GiveUp(Exception):
     '''Exception class thrown when retries are exhausted.
 
-    Includes information on retry context for diagnostic purposes.
+    Includes information on retry context for diagnostic purposes:
+    n_tries    : number of tries attempted
+    total_wait : total seconds of wait used
+    target_func: the target function that was attempted (the wrapped function)
+    exceptions : list of exceptions for each failed try
     '''
 
     def __init__(self, n_tries: int, total_wait: float, target_func: callable,
