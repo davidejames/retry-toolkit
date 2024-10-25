@@ -75,7 +75,17 @@ class Defaults:
 #-------------------------------------------------------------------------------
 
 class GiveUp(Exception):
-    pass
+    '''Exception class thrown when retries are exhausted.
+
+    Includes information on retry context for diagnostic purposes.
+    '''
+
+    def __init__(self, n_tries: int, total_wait: float, target_func: callable,
+                 exceptions: list):
+        self.n_tries     = n_tries
+        self.total_wait  = total_wait
+        self.target_func = target_func
+        self.exceptions  = exceptions
 
 
 #-------------------------------------------------------------------------------
@@ -118,17 +128,23 @@ def retry(tries=None, backoff=None, exceptions=None):
             n_tries = n_tries_f()
             exc     = exc_f()
 
+            # context/state
+            total_sleep    = 0.0
+            exception_list = []
+
             for try_num in range(n_tries):
 
                 if try_num > 0:
-                    sleep_f(backoff_f(try_num-1))
+                    sleep_time = backoff_f(try_num-1)
+                    total_sleep += sleep_time
+                    sleep_f(sleep_time)
 
                 try:
                     return func(*args, **kwargs)
                 except exc as e:
-                    pass
+                    exception_list.append(e)
 
-            raise GiveUp()
+            raise GiveUp(try_num+1, total_sleep, func, exception_list)
 
         return _retry_wrapper
     return _retry_decorator
