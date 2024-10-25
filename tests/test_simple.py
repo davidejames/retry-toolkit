@@ -232,7 +232,7 @@ def test__arguments__tries():
 
 
 #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
-def test__argumetns__backoff():
+def test__arguments__backoff():
     count = 0
 
     @retry(backoff=1.5)
@@ -265,4 +265,34 @@ def test__argumetns__backoff():
     assert count         == 3      # number of total tries
     assert sleep_t       == 1.5    # last sleep reqested
     assert total_sleep_t == 3.0    # total sleep request (all re-tries)
+
+
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+def test__arguments__exceptions():
+    count = 0
+
+    my_exceptions = (RuntimeError, BufferError)
+    @retry(exceptions=my_exceptions)
+    def foo():
+        nonlocal count
+        count += 1
+        raise ValueError()
+
+    def fake_sleep(t):
+        pass
+
+    # setup fake sleep function again so test won't waste time
+    save_sleep_f        = Defaults.SLEEP_FUNC
+    Defaults.SLEEP_FUNC = fake_sleep
+
+    try:
+        with pytest.raises(ValueError):
+            foo()
+    except:
+        pass
+    finally:
+        Defaults.SLEEP_FUNC = save_sleep_f
+
+    # the fact that a ValueError was raised outside of retry rather than
+    # GiveUp is the point of this test
 
