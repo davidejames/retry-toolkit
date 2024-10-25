@@ -136,8 +136,8 @@ def retry(tries=None, backoff=None, exceptions=None):
     ------
     GiveUp
         Thrown when retries are exhausted.
-
     '''
+
     def _retry_decorator(func):
         @wraps(func)
         def _retry_wrapper(*args, **kwargs):
