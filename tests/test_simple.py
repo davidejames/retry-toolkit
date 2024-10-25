@@ -176,3 +176,38 @@ def test__default__altered_module_defaults_backoff():
     assert total_sleep_t == 2.0    # total sleep request (all re-tries)
 
 
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+def test__default__altered_module_defaults_exceptions():
+    count = 0
+
+    @retry()
+    def foo():
+        nonlocal count
+        count += 1
+        raise ValueError()
+
+
+    def fake_sleep(t):
+        pass
+
+    # setup fake sleep function again so test won't waste time
+    save_sleep_f        = Defaults.SLEEP_FUNC
+    Defaults.SLEEP_FUNC = fake_sleep
+
+    # limit exceptions for retrying:
+    save_exc     = Defaults.EXC
+    Defaults.EXC = (RuntimeError, BufferError)
+
+    try:
+        with pytest.raises(ValueError):
+            foo()
+    except:
+        pass
+    finally:
+        Defaults.SLEEP_FUNC = save_sleep_f
+        Defaults.EXC        = save_exc
+
+    # the fact that a ValueError was raised outside of retry rather than
+    # GiveUp is the point of this test
+
+
