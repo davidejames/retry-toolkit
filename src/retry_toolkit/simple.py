@@ -1,5 +1,4 @@
 # SPDX-FileCopyrightText: © 2024 David E. James
-#
 # SPDX-License-Identifier: MIT
 # SPDX-FileType: SOURCE
 
@@ -48,10 +47,27 @@ def _ensure_callable(var, default):
 #-------------------------------------------------------------------------------
 
 class Defaults:
-    TRIES      = 3
-    BACKOFF    = 0
-    EXC        = Exception
+    '''Defaults for retry behavior.
+
+    These values are used if not specified during retry decorator generation
+    or if not overriden here (sleep function).
+    '''
+
+    TRIES = 3
+    '''integer: How many times to try an operation.'''
+
+    BACKOFF = 0
+    '''float or callable: is or returns how long to wait before next retry.'''
+
+    EXC = Exception
+    '''(Instance or tuple of or callable returning instance or tuple of)
+    Exception Subclass: defines what exceptions are used for retrying. If any
+    exceptions are thrown that do not match this specification then a retry
+    will not occur and exception will be raised.
+    '''
+
     SLEEP_FUNC = time.sleep
+    '''callable: used as the sleep waiter'''
 
 
 #-------------------------------------------------------------------------------
