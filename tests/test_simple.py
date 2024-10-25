@@ -230,3 +230,39 @@ def test__arguments__tries():
 
     assert count == 5
 
+
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+def test__argumetns__backoff():
+    count = 0
+
+    @retry(backoff=1.5)
+    def foo():
+        nonlocal count
+        count += 1
+        raise ValueError()
+
+    sleep_t       = 0.0
+    total_sleep_t = 0.0
+
+    def fake_sleep(t):
+        nonlocal sleep_t
+        nonlocal total_sleep_t
+        sleep_t = t
+        total_sleep_t += t
+
+    # setup fake sleep function again so test won't waste time
+    save_sleep_f        = Defaults.SLEEP_FUNC
+    Defaults.SLEEP_FUNC = fake_sleep
+
+    try:
+        with pytest.raises(GiveUp):
+            foo()
+    except:
+        pass
+    finally:
+        Defaults.SLEEP_FUNC = save_sleep_f
+
+    assert count         == 3      # number of total tries
+    assert sleep_t       == 1.5    # last sleep reqested
+    assert total_sleep_t == 3.0    # total sleep request (all re-tries)
+
