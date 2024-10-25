@@ -104,22 +104,38 @@ def retry(tries=None, backoff=None, exceptions=None):
     This is a decorator factory with some arguments to customize the retry
     behavior. Either specify constants or callables that will return the
     appropriate constants.
+    The parameters can also be set to callables returning the type indicated
+    below. For backoff, the callable must be able to take a single argument
+    which will be the retry number (1 for first retry, 2 for second, etc).
 
-    tries:   int or callable,     defaults to Defaults.TRIES   (default of 3)
-    backoff: numeric or callable, defaults to Defaults.BACKOFF (default of 0
-    exceptions: tuple of exceptions to catch, defaults to `Exception`
+    Parameters
+    ----------
+    tries: callable or integer, default = Defaults.TRIES
+        Number of times to try an operation including the first attempt which
+        is not technically a RE-try.
+        If set to a callable, it must take no arguments and return an integer.
+    backoff: callable or integer, default = Defaults.BACKOFF
+        Value in seconds of an amount to wait before next attempt. Can also
+        be set to a callable taking the number of retries that must return
+        the time to wait.
+    exceptions: callable or (class|tuple) Exception, default = Defaults.EXC
+        Defines the exceptions to to catch for retrying. Exceptions thrown that
+        are not caught will bypass further retries, be raised normally, and
+        not result in a GiveUp being thrown.
+        If set to a callable, it must take no arguments and return a class or
+        tuple of classes of Exception type. It is used directly in an
+        `except` directive.
 
-    return value:
-    the decorator factory returns a decorator used to wrap a function
-    When called the function will return whatever it normally would
+    Returns
+    -------
+    This decorator factory returns a decorator used to wrap a function. The
+    wrapped function will have retry behavior and when called it will return
+    whatever it normally would.
 
-    Exceptions:
-    if tries are exhausted, a `GiveUp` exception is thrown
-
-    For callables::
-    :tries      - no arguments are passed
-    :backoff    - the retry number (1 for first retry, 2 for second, ...)
-    :exceptions - no arguments are passed
+    Raises
+    ------
+    GiveUp
+        Thrown when retries are exhausted.
 
     '''
     def _retry_decorator(func):
