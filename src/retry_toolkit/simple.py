@@ -50,14 +50,15 @@ class Defaults:
     '''Defaults for retry behavior.
 
     These values are used if not specified during retry decorator generation
-    or if not overriden here (sleep function).
+    or if not overriden here (sleep function). Except for `SLEEP_FUNC` it is
+    not supported to set callables for these defaults.
     '''
 
     TRIES = 3
     '''integer: How many times to try an operation.'''
 
     BACKOFF = 0
-    '''float or callable: is or returns how long to wait before next retry.'''
+    '''float: is or returns how long to wait before next retry.'''
 
     EXC = Exception
     '''(Instance or tuple of or callable returning instance or tuple of)
