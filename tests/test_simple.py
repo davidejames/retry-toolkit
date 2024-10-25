@@ -82,6 +82,8 @@ def test__default__tries():
 
 
 #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+# Testing Module Defaults
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 def test__default__altered_module_defaults_tries():
     count = 0
 
@@ -170,6 +172,7 @@ def test__default__altered_module_defaults_backoff():
         pass
     finally:
         Defaults.SLEEP_FUNC = save_sleep_f
+        Defaults.BACKOFF    = save_backoff
 
     assert count         == 3      # number of total tries
     assert sleep_t       == 1.0    # last sleep reqested
@@ -185,7 +188,6 @@ def test__default__altered_module_defaults_exceptions():
         nonlocal count
         count += 1
         raise ValueError()
-
 
     def fake_sleep(t):
         pass
@@ -210,4 +212,21 @@ def test__default__altered_module_defaults_exceptions():
     # the fact that a ValueError was raised outside of retry rather than
     # GiveUp is the point of this test
 
+
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+# Testing Retry Arguments
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+def test__arguments__tries():
+    count = 0
+
+    @retry(5)
+    def foo():
+        nonlocal count
+        count += 1
+        raise ValueError()
+
+    with pytest.raises(GiveUp):
+        foo()
+
+    assert count == 5
 
