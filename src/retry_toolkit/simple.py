@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 # SPDX-FileType: SOURCE
 
+import inspect
 import time
 from functools import wraps
 
@@ -37,6 +38,9 @@ def _ensure_callable(var, default):
         return var
 
     if var is None:
+        if callable(default) and not inspect.isclass(default):
+            return default
+
         return lambda *args, **kwargs: default
 
     return lambda *args, **kwargs: var
@@ -50,8 +54,10 @@ class Defaults:
     '''Defaults for retry behavior.
 
     These values are used if not specified during retry decorator generation
-    or if not overriden here (sleep function). Except for `SLEEP_FUNC` it is
-    not supported to set callables for these defaults.
+    or if not overriden here (sleep function). For these defaults, it is
+    also acceptable to set them to a callable returning the required type
+    using the same convention as if it were used as an argument to the
+    retry decorator generator.
     '''
 
     TRIES = 3
