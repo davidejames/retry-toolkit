@@ -27,9 +27,9 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Documentation = "https://github.com/David E. James/retry-toolkit#readme"
-Issues = "https://github.com/David E. James/retry-toolkit/issues"
-Source = "https://github.com/David E. James/retry-toolkit"
+Documentation = "https://github.com/davidejames/retry-toolkit#readme"
+Issues = "https://github.com/davidejames/retry-toolkit/issues"
+Source = "https://github.com/davidejames/retry-toolkit"
 
 [tool.hatch.version]
 path = "src/retry_toolkit/__about__.py"
