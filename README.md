@@ -18,6 +18,7 @@ project where you can make your own tweaks.
 ## Table of Contents
 
 - [Installation](#installation)
+- [Examples](#examples)
 - [License](#license)
 
 ## Installation
