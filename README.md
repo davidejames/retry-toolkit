@@ -30,7 +30,7 @@ pip install retry-toolkit
 
 Defaults to 3 tries, no delays between, retry all exceptions:
 
-```console
+```python
 from retry.simple import retry
 
 @retry()
@@ -40,7 +40,7 @@ def foo():
 
 Customize the basic behaviors like so:
 
-```console
+```python
 from retry.simple import retry
 
 @retry(tries=4, backoff=1, exceptions=SomeConnectionError)
