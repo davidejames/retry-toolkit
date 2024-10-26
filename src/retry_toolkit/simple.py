@@ -18,6 +18,9 @@ the strategy below, include it in your own codebase, and alter it to make it
 your own. MIT is a permissive license.
 '''
 
+from collections.abc import Callable
+from typing import TypeAlias
+
 import inspect
 import time
 from functools import wraps
@@ -86,8 +89,8 @@ class Defaults:
     '''float: is or returns how long to wait before next retry.'''
 
     EXC = Exception
-    '''(Instance or tuple of or callable returning instance or tuple of)
-    Exception Subclass: defines what exceptions are used for retrying. If any
+    '''
+    Defines what exceptions are used for retrying. If any
     exceptions are thrown that do not match this specification then a retry
     will not occur and exception will be raised.
     '''
@@ -103,11 +106,19 @@ class Defaults:
 class GiveUp(Exception):
     '''Exception class thrown when retries are exhausted.
 
-    Includes information on retry context for diagnostic purposes:
-    n_tries    : number of tries attempted
-    total_wait : total seconds of wait used
-    target_func: the target function that was attempted (the wrapped function)
-    exceptions : list of exceptions for each failed try
+    Parameters
+    ----------
+    n_tries    : int
+        number of tries attempted
+
+    total_wait : float
+        total seconds of wait used
+
+    target_func: callable
+        the target function that was attempted (the wrapped function)
+
+    exceptions : list
+        list of exceptions for each failed try
     '''
 
     def __init__(self, n_tries: int, total_wait: float, target_func: callable,
@@ -121,39 +132,67 @@ class GiveUp(Exception):
 #-------------------------------------------------------------------------------
 # Retry Function:
 #-------------------------------------------------------------------------------
-def retry(tries=None, backoff=None, exceptions=None):
+
+# The Exception types are particularly messy, some aliases may make it easier
+# to understand...
+ExceptionTuple: TypeAlias = tuple[type(Exception),...]
+ExceptionFunc : TypeAlias = Callable[[],ExceptionTuple|type(Exception)]
+
+def retry(
+    tries      : int | Callable[[],int] = None,
+    backoff    : int | Callable[[int],int] = None,
+    exceptions : type(Exception) | ExceptionTuple | ExceptionFunc = None
+    ):
     '''Decorator factory, enables retries.
 
     This is a decorator factory with some arguments to customize the retry
     behavior. Either specify constants or callables that will return the
     appropriate constants.
+
     The parameters can also be set to callables returning the type indicated
     below. For backoff, the callable must be able to take a single argument
     which will be the retry number (1 for first retry, 2 for second, etc).
 
     Parameters
     ----------
-    tries: callable or integer, default = Defaults.TRIES
+    tries:
         Number of times to try an operation including the first attempt which
         is not technically a RE-try.
-        If set to a callable, it must take no arguments and return an integer.
-    backoff: callable or integer, default = Defaults.BACKOFF
+
+        If set to a callable, it must have signature:
+
+            () -> int
+
+        If not present in arguments, Defaults.TRIES is used.
+
+    backoff:
         Value in seconds of an amount to wait before next attempt. Can also
         be set to a callable taking the number of retries that must return
         the time to wait.
-    exceptions: callable or (class|tuple) Exception, default = Defaults.EXC
+
+        If set to a callable, it must have signature:
+
+            (int) -> float
+
+        If not present in arguments, Defaults.BACKOFF is used.
+
+    exceptions:
         Defines the exceptions to to catch for retrying. Exceptions thrown that
         are not caught will bypass further retries, be raised normally, and
         not result in a GiveUp being thrown.
-        If set to a callable, it must take no arguments and return a class or
-        tuple of classes of Exception type. It is used directly in an
-        `except` directive.
+
+        if set to a callable, it must have signature:
+
+            () -> tuple[Exception,...] | Exception
+
+        If not present in arguments, Defaults.EXC is used.
 
     Returns
     -------
-    This decorator factory returns a decorator used to wrap a function. The
-    wrapped function will have retry behavior and when called it will return
-    whatever it normally would.
+    : *
+        This decorator factory returns a decorator used to wrap a function. The
+        wrapped function will have retry behavior and when called it will return
+        whatever it normally would.
 
     Raises
     ------
