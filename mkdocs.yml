@@ -1,4 +1,5 @@
 site_name: retry_toolkit
+repo_url: https://github.com/davidejames/retry-toolkit
 
 theme:
   name: material
