@@ -3,79 +3,48 @@
 import functools
 
 
-def retry(*args, **kwargs):
-    return RetryContextDecorator(*args, **kwargs)
+class Defaults:
+    RETRY_CLASS = Retry
 
 
-#──────────────────────────────────────────────────────────────────────────────#
-#──────────────────────────────────────────────────────────────────────────────#
-class RetryContextDecorator:
-    def __init__(self, tries, backoff, exceptions, *args, **kwargs):
-        self._tries      = tries
-        self._backoff    = backoff
-        self._exceptions = exceptions
-        self._args       = args
-        self._kwargs     = kwargs
 
-        self.registry = dict()
+def retry(tries=None, backoff=None, exceptions=None, class_f=None, *args, **kwargs):
+    def decorator(func):
+        _class_f   = class_f or lambda: Defaults.RETRY_CLASS
+        _class     = _class_f()
+        _retry_obj = _class(tries, backoff, exceptions, func, *args, **kwargs)
 
-    #┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄#
-    #┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄#
-    def _retry_class(self):
-        return Retry(self)
+        return _retry_obj
 
-    #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def _func_id_f(self, func):
-        return func.__name__ + ':' + hex(id(func))
-
-    #┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄#
-    # Context Manager Interface                                                #
-    #┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄#
-    def __enter__(self):
-        return self
-
-    #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        # the retry object itself will catch exceptions needing to be caught
-        return False
-
-    #┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄#
-    #┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄#
-    def __call__(self, func):
-        _retry      = _retry_class(self)
-        func_id     = self.func_id_f(func)
-        self.newest = func_id
-
-        self.registry[func_id] = _retry
-
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            with self:
-                return _retry(*args, **kwargs)
-
-        return wrapper
+    return decorator
 
 
 #──────────────────────────────────────────────────────────────────────────────#
 #──────────────────────────────────────────────────────────────────────────────#
 class Retry:
-    def __init__(self, parent, func):
-        self._tries      = parent.tries
-        self._backoff    = parent.backoff
-        self._exceptions = parent.exceptions
+    def __init__(self, tries, backoff, exceptions, func, *args, **kwargs):
+        self._tries      = tries
+        self._backoff    = backoff
+        self._exceptions = exceptions
         self._func       = func
+
+        functools.update_wrapper(self, func)
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def __call__(self, *args, **kwargs):
         self._setup()
 
         for try_num in range(self.n_tries):
-            self._sleep(try_num)
+            if try_num > 0:
+                self._sleep(try_num)
             try:
-                return self._func(*args, **kwargs)
+                return_value = self._func(*args, **kwargs)
+                self._report_success()
+                return return_value
             except excs_to_catch as e:
                 self._exception(e)
 
+        self._report_failure()
         self._giveup(try_num, func)
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
@@ -96,10 +65,9 @@ class Retry:
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def _sleep(self, try_num):
-        if try_num > 0:
-            sleep_time = self.backoff_f(try_num-1)
-            total_sleep += sleep_time
-            self.sleep_f(sleep_time)
+        sleep_time = self._backoff_f(try_num-1)
+        self.total_sleep += sleep_time
+        self._sleep_f(sleep_time)
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def _exception(self, e):
@@ -109,5 +77,11 @@ class Retry:
     def _giveup(self, try_num):
         raise GiveUp(try_num+1, self.total_sleep, self.func, self.exception_list)
 
+    #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
+    def _report_success(self):
+        pass
 
+    #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
+    def _report_failure(self):
+        pass
 
