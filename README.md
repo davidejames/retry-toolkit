@@ -22,6 +22,17 @@ project where you can make your own tweaks.
 - [Examples](#examples)
 - [License](#license)
 
+## Features
+
+- wraps a function with the following behaviors..
+- configurable number of retries un case of Exception
+- configurable backoff before retrying
+- configurable which exceptions trigger a retry
+- raises specialized 'GiveUp' exception when retries exhausted
+- all configuration items accept a callbale for maximum flexibility
+- all configuration is processed live on each execution for compatibility
+  with live adjustments, experiments, feature-flag selectable changes
+
 ## Installation
 
 ```console
