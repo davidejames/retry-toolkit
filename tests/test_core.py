@@ -9,7 +9,7 @@ import pytest
 #-------------------------------------------------------------------------------
 # Import the things we're testing:
 #-------------------------------------------------------------------------------
-from retry_toolkit.simple import (
+from retry_toolkit.core import (
     retry,        # the star of the show
     GiveUp,       # when retries still fail
     Defaults,     # module defaults
@@ -258,4 +258,7 @@ def test__arguments__exceptions():
 
     # the fact that a ValueError was raised outside of retry rather than
     # GiveUp is the point of this test
+
+
+
 

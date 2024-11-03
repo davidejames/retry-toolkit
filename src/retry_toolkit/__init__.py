@@ -2,4 +2,4 @@
 # SPDX-License-Identifier: MIT
 # SPDX-FileType: SOURCE
 
-from .simple import *
+from .core import *

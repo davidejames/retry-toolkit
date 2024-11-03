@@ -3,23 +3,59 @@
 # SPDX-License-Identifier: MIT
 # SPDX-FileType: SOURCE
 #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-#┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅#
+'''A class-based retry implementation.
+
+Takes the same arguments as the "simple" version, but implements retry
+as a class which is more easily extensible/modifiable.
+
+Retry has been done and redone many times. Here is a version that takes only
+a few arguments that are all optional but provides most of the flexibility
+seen in many implementations.
+
+It does not try to define all the different variables that may be used to
+compute backoff values, instead preferring to allow a callable that could use
+any algorithm desired to compute a backoff of which 3 very simple
+implementations are provided. Users can use these as an example to setup their
+own perfect backoff implementation (hopefully using jitter as well).
+
+Or perhaps you should not use this module as a dependency, but instead copy
+the strategy below, include it in your own codebase, and alter it to make it
+your own. MIT is a permissive license.
+'''
 #┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅#
 import functools
 import time
 
+from collections.abc import Callable
+
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
+from .exceptions import (
+    ExceptionTuple,
+    ExceptionFunc,
+    GiveUp,
+)
+
+from .defaults import Defaults
+from ._utils import _ensure_callable
 
 
+#──────────────────────────────────────────────────────────────────────────────#
+# Decorator Factory
+#──────────────────────────────────────────────────────────────────────────────#
 def retry(
     tries      : int | Callable[[],int] = None,
     backoff    : int | Callable[[int],int] = None,
     exceptions : type(Exception) | ExceptionTuple | ExceptionFunc = None,
+    class_f    = None,
     *args,
     **kwargs,
 ):
-
     def decorator(func):
-        _class_f = class_f or lambda: Defaults.RETRY_CLASS
+        _class_f = class_f
+        if _class_f is None:
+            _class_f = Defaults.RETRY_CLASS
+        if _class_f is None:
+            _class_f = lambda: Retry
         _class   = _class_f()
 
         _retry_obj = _class(tries, backoff, exceptions, func, *args, **kwargs)
@@ -30,6 +66,7 @@ def retry(
 
 
 #──────────────────────────────────────────────────────────────────────────────#
+# Retry Class
 #──────────────────────────────────────────────────────────────────────────────#
 class Retry:
     def __init__(self, tries, backoff, exceptions, func, *args, **kwargs):
@@ -51,11 +88,11 @@ class Retry:
                 return_value = self._func(*args, **kwargs)
                 self._report_success()
                 return return_value
-            except excs_to_catch as e:
+            except self.exc as e:
                 self._exception(e)
 
         self._report_failure()
-        self._giveup(try_num, func)
+        self._giveup(try_num)
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def _setup(self):
@@ -85,7 +122,12 @@ class Retry:
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def _giveup(self, try_num):
-        raise GiveUp(try_num+1, self.total_sleep, self.func, self.exception_list)
+        raise GiveUp(
+            try_num+1,            # total tries
+            self.total_sleep,     # total time sleeping (not total elapsed)
+            self._func,           # function reference
+            self.exception_list,  # all exceptions that happened
+        )
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def _report_success(self):
