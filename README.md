@@ -18,6 +18,7 @@ project where you can make your own tweaks.
 
 ## Table of Contents
 
+- [Features](#features)
 - [Installation](#installation)
 - [Examples](#examples)
 - [License](#license)
@@ -29,7 +30,7 @@ project where you can make your own tweaks.
 - configurable backoff before retrying
 - configurable which exceptions trigger a retry
 - raises specialized 'GiveUp' exception when retries exhausted
-- all configuration items accept a callbale for maximum flexibility
+- all configuration items accept a callable for maximum flexibility
 - all configuration is processed live on each execution for compatibility
   with live adjustments, experiments, feature-flag selectable changes
 
