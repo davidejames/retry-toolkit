@@ -9,10 +9,13 @@ import pytest
 #-------------------------------------------------------------------------------
 # Import the things we're testing:
 #-------------------------------------------------------------------------------
-from retry_toolkit.simple import (
+from retry_toolkit.backoff import (
     constant,     # basic backoff calculation functions
     linear,
     exponential,
+)
+
+from retry_toolkit.simple import (
     retry,        # the star of the show
     GiveUp,       # when retries still fail
     Defaults,     # module defaults

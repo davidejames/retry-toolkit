@@ -1,6 +1,8 @@
+#┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅#
 # SPDX-FileCopyrightText: © 2024 David E. James
 # SPDX-License-Identifier: MIT
 # SPDX-FileType: SOURCE
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
 '''A "simple" retry implementation.
 
 Retry has been done and redone many times. Here is a version that takes only
@@ -17,131 +19,31 @@ Or perhaps you should not use this module as a dependency, but instead copy
 the strategy below, include it in your own codebase, and alter it to make it
 your own. MIT is a permissive license.
 '''
+#┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅#
 
 from collections.abc import Callable
-from typing import TypeAlias
 
-import inspect
-import time
-from functools import wraps
+import functools
 
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
+from .exceptions import (
+    ExceptionTuple,
+    ExceptionFunc,
+    GiveUp,
+)
 
-#-------------------------------------------------------------------------------
-# Backoff time calculation functions
-#-------------------------------------------------------------------------------
-
-def constant(c: float):
-    '''Simple constant backoff. Suitable for demonstration.'''
-    def _constant(x: float) -> float:
-        return c
-    return _constant
+from .defaults import Defaults
+from ._utils import _ensure_callable
 
 
-def linear(m: float, b: float =0):
-    '''Linear backoff. Suitable for demonstration.'''
-    def _linear(x: float) -> float:
-        return m*x + b
-    return _linear
-
-
-def exponential(n: float, b: float = 0):
-    '''Exponential backoff. Slightly more realistic.'''
-    def _exponential(x: float) -> float:
-        return n*(2**x) + b
-    return _exponential
-
-
-#-------------------------------------------------------------------------------
-# Private Utilities
-#-------------------------------------------------------------------------------
-
-def _ensure_callable(var, default):
-    if callable(var):
-        return var
-
-    if var is None:
-        if callable(default) and not inspect.isclass(default):
-            return default
-
-        return lambda *args, **kwargs: default
-
-    return lambda *args, **kwargs: var
-
-
-#-------------------------------------------------------------------------------
-# Defaults for Behaviors:
-#-------------------------------------------------------------------------------
-
-class Defaults:
-    '''Defaults for retry behavior.
-
-    These values are used if not specified during retry decorator generation
-    or if not overriden here (sleep function). For these defaults, it is
-    also acceptable to set them to a callable returning the required type
-    using the same convention as if it were used as an argument to the
-    retry decorator generator.
-    '''
-
-    TRIES = 3
-    '''integer: How many times to try an operation.'''
-
-    BACKOFF = 0
-    '''float: is or returns how long to wait before next retry.'''
-
-    EXC = Exception
-    '''
-    Defines what exceptions are used for retrying. If any
-    exceptions are thrown that do not match this specification then a retry
-    will not occur and exception will be raised.
-    '''
-
-    SLEEP_FUNC = time.sleep
-    '''callable: used as the sleep waiter'''
-
-
-#-------------------------------------------------------------------------------
-# GiveUp - when retry fails:
-#-------------------------------------------------------------------------------
-
-class GiveUp(Exception):
-    '''Exception class thrown when retries are exhausted.
-
-    Parameters
-    ----------
-    n_tries    : int
-        number of tries attempted
-
-    total_wait : float
-        total seconds of wait used
-
-    target_func: callable
-        the target function that was attempted (the wrapped function)
-
-    exceptions : list
-        list of exceptions for each failed try
-    '''
-
-    def __init__(self, n_tries: int, total_wait: float, target_func: callable,
-                 exceptions: list):
-        self.n_tries     = n_tries
-        self.total_wait  = total_wait
-        self.target_func = target_func
-        self.exceptions  = exceptions
-
-
-#-------------------------------------------------------------------------------
+#──────────────────────────────────────────────────────────────────────────────#
 # Retry Function:
-#-------------------------------------------------------------------------------
-
-# The Exception types are particularly messy, some aliases may make it easier
-# to understand...
-ExceptionTuple: TypeAlias = tuple[type(Exception),...]
-ExceptionFunc : TypeAlias = Callable[[],ExceptionTuple|type(Exception)]
+#──────────────────────────────────────────────────────────────────────────────#
 
 def retry(
-    tries      : int | Callable[[],int] = None,
-    backoff    : int | Callable[[int],int] = None,
-    exceptions : type(Exception) | ExceptionTuple | ExceptionFunc = None
+    tries      : int | Callable[[],int]                           = None,
+    backoff    : int | Callable[[int],int]                        = None,
+    exceptions : type(Exception) | ExceptionTuple | ExceptionFunc = None,
     ):
     '''Decorator factory, enables retries.
 
@@ -201,7 +103,7 @@ def retry(
     '''
 
     def _retry_decorator(func):
-        @wraps(func)
+        @functools.wraps(func)
         def _retry_wrapper(*args, **kwargs):
             # configure at call-time to allow any changes to defaults
             # to properly take effect each time func is used

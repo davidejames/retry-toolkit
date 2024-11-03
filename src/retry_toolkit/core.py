@@ -1,17 +1,27 @@
 #┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅#
+# SPDX-FileCopyrightText: © 2024 David E. James
+# SPDX-License-Identifier: MIT
+# SPDX-FileType: SOURCE
+#┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
+#┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅#
 #┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅#
 import functools
-
-
-class Defaults:
-    RETRY_CLASS = Retry
+import time
 
 
 
-def retry(tries=None, backoff=None, exceptions=None, class_f=None, *args, **kwargs):
+def retry(
+    tries      : int | Callable[[],int] = None,
+    backoff    : int | Callable[[int],int] = None,
+    exceptions : type(Exception) | ExceptionTuple | ExceptionFunc = None,
+    *args,
+    **kwargs,
+):
+
     def decorator(func):
-        _class_f   = class_f or lambda: Defaults.RETRY_CLASS
-        _class     = _class_f()
+        _class_f = class_f or lambda: Defaults.RETRY_CLASS
+        _class   = _class_f()
+
         _retry_obj = _class(tries, backoff, exceptions, func, *args, **kwargs)
 
         return _retry_obj
