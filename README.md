@@ -33,6 +33,7 @@ project where you can make your own tweaks.
 - all configuration items accept a callable for maximum flexibility
 - all configuration is processed live on each execution for compatibility
   with live adjustments, experiments, feature-flag selectable changes
+- includes an async variant with all the same features
 
 ## Installation
 
