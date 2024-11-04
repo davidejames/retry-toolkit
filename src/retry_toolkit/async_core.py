@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 # SPDX-FileType: SOURCE
 #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-'''A class-based retry implementation.
+'''An async class-based retry implementation.
 
 Takes the same arguments as the "simple" version, but implements retry
 as a class which is more easily extensible/modifiable.
@@ -35,8 +35,8 @@ from .exceptions import (
     GiveUp,
 )
 
-from .defaults import Defaults
-from ._utils import _ensure_callable
+from .defaults import AsyncDefaults as Defaults
+from ._utils import _ensure_async_callable
 
 
 #──────────────────────────────────────────────────────────────────────────────#
@@ -51,7 +51,7 @@ def retry(
     **kwargs,
 ):
     _class_f = class_f or Defaults.RETRY_CLASS
-    _class   = Retry if _class_f is None else _class_f()
+    _class   = AsyncRetry if _class_f is None else _class_f()
 
     def decorator(func):
         return _class(tries, backoff, exceptions, func, *args, **kwargs)
@@ -60,9 +60,9 @@ def retry(
 
 
 #──────────────────────────────────────────────────────────────────────────────#
-# Retry Class
+# An Async Compatible Retry Class
 #──────────────────────────────────────────────────────────────────────────────#
-class Retry:
+class AsyncRetry:
     def __init__(self, tries, backoff, exceptions, func, *args, **kwargs):
         self._tries      = tries
         self._backoff    = backoff
@@ -72,46 +72,46 @@ class Retry:
         functools.update_wrapper(self, func)
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def __call__(self, *args, **kwargs):
-        self._setup()
+    async def __call__(self, *args, **kwargs):
+        await self._setup()
 
         for try_num in range(self.n_tries):
             if try_num > 0:
-                self._sleep(try_num)
+                await self._sleep(try_num)
             try:
-                return_value = self._func(*args, **kwargs)
-                self._report_success()
+                return_value = await self._func(*args, **kwargs)
+                await self._report_success()
                 return return_value
             except self.exc as e:
-                self._exception(e)
+                await self._exception(e)
 
-        self._report_failure()
+        await self._report_failure()
         self._giveup(try_num)
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def _setup(self):
+    async def _setup(self):
         # configure at call-time to allow any changes to defaults
         # to properly take effect each time func is used
-        self._n_tries_f = _ensure_callable(self._tries      , Defaults.TRIES  )
-        self._backoff_f = _ensure_callable(self._backoff    , Defaults.BACKOFF)
-        self._exc_f     = _ensure_callable(self._exceptions , Defaults.EXC    )
+        self._n_tries_f = _ensure_async_callable(self._tries      , Defaults.TRIES  )
+        self._backoff_f = _ensure_async_callable(self._backoff    , Defaults.BACKOFF)
+        self._exc_f     = _ensure_async_callable(self._exceptions , Defaults.EXC    )
         self._sleep_f   = Defaults.SLEEP_FUNC
 
-        self.n_tries = self._n_tries_f()
-        self.exc     = self._exc_f()
+        self.n_tries = await self._n_tries_f()
+        self.exc     = await self._exc_f()
 
         # context/state
         self.total_sleep    = 0.0
         self.exception_list = []
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def _sleep(self, try_num):
-        sleep_time = self._backoff_f(try_num-1)
+    async def _sleep(self, try_num):
+        sleep_time = await self._backoff_f(try_num-1)
         self.total_sleep += sleep_time
-        self._sleep_f(sleep_time)
+        await self._sleep_f(sleep_time)
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def _exception(self, e):
+    async def _exception(self, e):
         self.exception_list.append(e)
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
@@ -124,10 +124,11 @@ class Retry:
         )
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def _report_success(self):
+    async def _report_success(self):
         pass
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def _report_failure(self):
+    async def _report_failure(self):
         pass
+
 

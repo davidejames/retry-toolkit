@@ -34,6 +34,11 @@ Source = "https://github.com/davidejames/retry-toolkit"
 [tool.hatch.version]
 path = "src/retry_toolkit/__about__.py"
 
+[tool.hatch.envs.hatch-test]
+extra-dependencies = [
+  "pytest-asyncio",
+]
+
 [tool.hatch.envs.types]
 extra-dependencies = [
   "mypy>=1.0.0",
