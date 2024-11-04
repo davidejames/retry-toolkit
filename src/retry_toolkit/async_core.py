@@ -36,7 +36,10 @@ from .exceptions import (
 )
 
 from .defaults import AsyncDefaults as Defaults
-from ._utils import _ensure_async_callable
+from ._utils import (
+    _ensure_callable,
+    _acall_f,
+)
 
 
 #──────────────────────────────────────────────────────────────────────────────#
@@ -92,21 +95,23 @@ class AsyncRetry:
     async def _setup(self):
         # configure at call-time to allow any changes to defaults
         # to properly take effect each time func is used
-        self._n_tries_f = _ensure_async_callable(self._tries      , Defaults.TRIES  )
-        self._backoff_f = _ensure_async_callable(self._backoff    , Defaults.BACKOFF)
-        self._exc_f     = _ensure_async_callable(self._exceptions , Defaults.EXC    )
+        self._n_tries_f = _ensure_callable(self._tries      , Defaults.TRIES  )
+        self._backoff_f = _ensure_callable(self._backoff    , Defaults.BACKOFF)
+        self._exc_f     = _ensure_callable(self._exceptions , Defaults.EXC    )
         self._sleep_f   = Defaults.SLEEP_FUNC
 
-        self.n_tries = await self._n_tries_f()
-        self.exc     = await self._exc_f()
+        self.n_tries = await _acall_f(self._n_tries_f)
+        self.exc     = await _acall_f(self._exc_f)
 
         # context/state
         self.total_sleep    = 0.0
         self.exception_list = []
 
+
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     async def _sleep(self, try_num):
-        sleep_time = await self._backoff_f(try_num-1)
+        sleep_time = await _acall_f(self._backoff_f, try_num-1)
+
         self.total_sleep += sleep_time
         await self._sleep_f(sleep_time)
 
