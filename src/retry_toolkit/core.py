@@ -25,6 +25,7 @@ your own. MIT is a permissive license.
 #┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅#
 import functools
 import time
+from enum import Enum
 
 from collections.abc import Callable
 
@@ -37,6 +38,10 @@ from .exceptions import (
 
 from .defaults import Defaults
 from ._utils import _ensure_callable
+from .constants import (
+    Warnings,
+    Events,
+)
 
 
 #──────────────────────────────────────────────────────────────────────────────#
@@ -53,40 +58,107 @@ def retry(
     _class_f = class_f or Defaults.RETRY_CLASS
     _class   = Retry if _class_f is None else _class_f()
 
-    def decorator(func):
-        return _class(tries, backoff, exceptions, func, *args, **kwargs)
-
-    return decorator
+    return _class(tries, backoff, exceptions, *args, **kwargs)
 
 
 #──────────────────────────────────────────────────────────────────────────────#
 # Retry Class
 #──────────────────────────────────────────────────────────────────────────────#
 class Retry:
-    def __init__(self, tries, backoff, exceptions, func, *args, **kwargs):
+    def __init__(self, tries, backoff, exceptions, *args, **kwargs):
         self._tries      = tries
         self._backoff    = backoff
         self._exceptions = exceptions
-        self._func       = func
 
-        functools.update_wrapper(self, func)
+    def _result_is_success(self, result):
+        return True
+
+    def _should_retry_exception(self, exc_type, exc_val):
+        return True
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def __call__(self, *args, **kwargs):
+    def __iter__(self):
+        '''starts a retry set'''
+        self._event(Events.SETUP)
         self._setup()
+        self._event(Events.START)
 
-        for try_num in range(self.n_tries):
-            if try_num > 0:
-                self._sleep(try_num)
-            try:
-                return_value = self._func(*args, **kwargs)
-                self._report_success()
-                return return_value
-            except self.exc as e:
-                self._exception(e)
+        self.target_func     = False
+        self.func_successful = False
 
-        self._report_failure()
-        self._giveup(try_num)
+        self.done    = False
+        self.try_num = 0
+
+
+        return self
+
+    #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
+    def __next__(self):
+        '''starts a retry attempt'''
+        if self.done:
+            raise StopIteration()
+
+        if self.n_tries == 0:
+            self._event(Events.SKIP)
+            raise StopIteration()
+
+        if self.try_num < self.n_tries:
+            return self
+
+        self._giveup()
+
+    #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
+    def __enter__(self):
+        '''also called when starting a retry attempt'''
+        if self.try_num > 0:
+            self._sleep()
+        self._event(Events.TRY)
+
+    #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        '''called at the end of a retry attempt with the exception if any'''
+        func_success     = self.target_func is None and self.func_successful
+        non_func_success = not self.target_func is None
+
+        if exc_type is None:
+            if func_success or non_func_success:
+                self._event(Events.SUCCESS)
+                self.done = True
+            return True
+
+        self._save_exception(exc_val)
+
+        if not self._should_retry_exception(exc_type, exc_val):
+            self._event(Events.ABORT)
+            return False
+
+        self._event(Events.FAIL)
+        self._event(Events.FAIL_ON_EXCEPTION)
+
+        self.try_num += 1
+        return True
+
+    #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
+    def __call__(self, func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            result = None
+            for _try in self:
+                with _try:
+                    self.target_func     = func
+                    self.func_successful = False
+
+                    result = func(*args, **kwargs)
+
+                    if self._result_is_success(result):
+                        self.func_successful = True
+                        break
+
+                    self._event(Events.FAIL)
+                    self._event(Events.FAIL_ON_RESULT)
+
+            return result
+        return wrapper
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def _setup(self):
@@ -97,7 +169,12 @@ class Retry:
         self._exc_f     = _ensure_callable(self._exceptions , Defaults.EXC    )
         self._sleep_f   = Defaults.SLEEP_FUNC
 
-        self.n_tries = self._n_tries_f()
+        n_tries = self._n_tries_f()
+        if n_tries < 0:
+            self._warn(Warnings.NEGATIVE_TRIES)
+            n_tries = 0
+
+        self.n_tries = n_tries
         self.exc     = self._exc_f()
 
         # context/state
@@ -105,29 +182,33 @@ class Retry:
         self.exception_list = []
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def _sleep(self, try_num):
-        sleep_time = self._backoff_f(try_num-1)
+    def _sleep(self):
+        sleep_time = self._backoff_f(self.try_num-1)
+
+        if sleep_time < 0.0:
+            self._warn(Warnings.NEGATIVE_SLEEP)
+            sleep_time = 0.0
+
         self.total_sleep += sleep_time
         self._sleep_f(sleep_time)
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def _exception(self, e):
+    def _save_exception(self, e):
         self.exception_list.append(e)
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def _giveup(self, try_num):
+    def _giveup(self):
         raise GiveUp(
-            try_num+1,            # total tries
+            self.try_num+1,       # total tries
             self.total_sleep,     # total time sleeping (not total elapsed)
-            self._func,           # function reference
+            self.target_func,     # function reference
             self.exception_list,  # all exceptions that happened
         )
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def _report_success(self):
+    def _event(self, event_id):
         pass
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def _report_failure(self):
+    def _warn(self, warning_id):
         pass
-

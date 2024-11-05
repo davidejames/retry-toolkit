@@ -36,7 +36,7 @@ class GiveUp(Exception):
         list of exceptions for each failed try
     '''
 
-    def __init__(self, n_tries: int, total_wait: float, target_func: callable,
+    def __init__(self, n_tries: int, total_wait: float, target_func: Callable,
                  exceptions: list):
         self.n_tries     = n_tries
         self.total_wait  = total_wait
