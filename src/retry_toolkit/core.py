@@ -36,10 +36,16 @@ from .exceptions import (
     GiveUp,
 )
 
-from .defaults import Defaults
-from ._utils import _ensure_callable
+from .defaults import (
+    Defaults,
+    LoggingDefaults,
+)
+from ._utils import (
+    _ensure_callable,
+    _process_subscriptions,
+    _publish,
+)
 from .constants import (
-    Warnings,
     Events,
 )
 
@@ -52,49 +58,63 @@ def retry(
     backoff    : int | Callable[[int],int] = None,
     exceptions : type(Exception) | ExceptionTuple | ExceptionFunc = None,
     class_f    = None,
+    logger     = None,
+    subscriptions = None,
     *args,
     **kwargs,
 ):
     _class_f = class_f or Defaults.RETRY_CLASS
     _class   = Retry if _class_f is None else _class_f()
 
-    return _class(tries, backoff, exceptions, *args, **kwargs)
+    return _class(tries, backoff, exceptions, logger, subscriptions,
+                    *args, **kwargs)
 
 
 #──────────────────────────────────────────────────────────────────────────────#
 # Retry Class
 #──────────────────────────────────────────────────────────────────────────────#
 class Retry:
-    def __init__(self, tries, backoff, exceptions, *args, **kwargs):
+    def __init__(self, tries, backoff, exceptions, logger, subscriptions,
+                *args, **kwargs):
         self._tries      = tries
         self._backoff    = backoff
         self._exceptions = exceptions
 
+        self._event_subs = _process_subscriptions(Events, subscriptions)
+
+    #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def _result_is_success(self, result):
         return True
 
+    #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def _should_retry_exception(self, exc_type, exc_val):
         return True
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def __iter__(self):
         '''starts a retry set'''
-        self._event(Events.SETUP)
-        self._setup()
-        self._event(Events.START)
+        self.iter_start = True
 
         self.target_func     = False
         self.func_successful = False
 
         self.done    = False
         self.try_num = 0
-
+        self.n_tries = None
+        self.total_sleep = 0
+        self.exception_list = []
 
         return self
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def __next__(self):
         '''starts a retry attempt'''
+        if self.iter_start:
+            self._event(Events.SETUP)
+            self._setup()
+            self._event(Events.START)
+            self.iter_start = False
+
         if self.done:
             raise StopIteration()
 
@@ -207,8 +227,15 @@ class Retry:
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def _event(self, event_id):
-        pass
+        context = dict(
+            n_tries      = self.n_tries,
+            try_num      = self.try_num,
+            total_sleep  = self.total_sleep,
+            target_func  = self.target_func,
+            exceptions   = self.exception_list,
+            #start_time   = self.start_time,
+            #current_time = self.current_time,
+        )
+        _publish(event_id, self._event_subs, context)
 
-    #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
-    def _warn(self, warning_id):
-        pass
+

@@ -38,11 +38,10 @@ from .exceptions import (
 from .defaults import AsyncDefaults as Defaults
 from ._utils import (
     _ensure_callable,
-    _acall_f,
+    _async_call_f,
 )
 
 from .constants import (
-    Warnings,
     Events,
 )
 
@@ -181,8 +180,8 @@ class AsyncRetry:
         self._exc_f     = _ensure_callable(self._exceptions , Defaults.EXC    )
         self._sleep_f   = Defaults.SLEEP_FUNC
 
-        self.n_tries = await _acall_f(self._n_tries_f)
-        self.exc     = await _acall_f(self._exc_f)
+        self.n_tries = await _async_call_f(self._n_tries_f)
+        self.exc     = await _async_call_f(self._exc_f)
 
         # context/state
         self.total_sleep    = 0.0
@@ -190,10 +189,10 @@ class AsyncRetry:
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     async def _sleep(self):
-        sleep_time = await _acall_f(self._backoff_f, self.try_num-1)
+        sleep_time = await _async_call_f(self._backoff_f, self.try_num-1)
 
         if sleep_time < 0.0:
-            await self._warn(Warnings.NEGATIVE_SLEEP)
+            await self._warn(Events.NEGATIVE_SLEEP)
             sleep_time = 0.0
 
         self.total_sleep += sleep_time

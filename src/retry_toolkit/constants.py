@@ -1,9 +1,5 @@
 from enum import Enum
 
-class Warnings(Enum):
-    NEGATIVE_TRIES = 10
-    NEGATIVE_SLEEP = 20
-
 
 class Events(Enum):
     SETUP   = 10
@@ -17,4 +13,9 @@ class Events(Enum):
 
     FAIL_ON_RESULT    = 51
     FAIL_ON_EXCEPTION = 52
+
+    WARN_NEGATIVE_TRIES = 100
+    WARN_NEGATIVE_SLEEP = 101
+
+
 

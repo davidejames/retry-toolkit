@@ -7,10 +7,36 @@
 import asyncio
 import time
 
+import logging
+
+from .constants import (
+    Events,
+)
 
 #-------------------------------------------------------------------------------
 # Defaults for Behaviors:
 #-------------------------------------------------------------------------------
+
+class LoggingDefaults:
+    GET_LOGGER = logging.getLogger('retry-toolkit')
+    LOG_LEVEL  = logging.INFO
+    LOG_MSG_T  = '{event}'
+
+    LOG_CONFIG = {
+        Events.SETUP   : {},
+        Events.START   : {},
+        Events.SKIP    : {},
+        Events.TRY     : {},
+        Events.ABORT   : {},
+        Events.GIVEUP  : {},
+        Events.SUCCESS : {},
+
+        Events.FAIL_ON_RESULT      : {},
+        Events.FAIL_ON_EXCEPTION   : {},
+        Events.WARN_NEGATIVE_TRIES : {},
+        Events.WARN_NEGATIVE_SLEEP : {},
+    }
+
 
 class Defaults:
     '''Defaults for retry behavior.
@@ -23,9 +49,6 @@ class Defaults:
     '''
     RETRY_CLASS = None
     '''class to use for all class-based retry logic.'''
-
-    ASYNC_RETRY_CLASS = None
-    '''class to use for all async-class-based retry logic.'''
 
     TRIES = 3
     '''integer: How many times to try an operation.'''
@@ -42,10 +65,6 @@ class Defaults:
 
     SLEEP_FUNC = time.sleep
     '''callable: used as the sleep waiter'''
-
-    ASYNC_SLEEP_FUNC = asyncio.sleep
-    '''callable: used as async sleep waiter'''
-
 
 
 class AsyncDefaults:
