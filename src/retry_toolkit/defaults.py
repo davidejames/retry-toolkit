@@ -18,7 +18,7 @@ from .constants import (
 #-------------------------------------------------------------------------------
 
 class LoggingDefaults:
-    GET_LOGGER = logging.getLogger('retry-toolkit')
+    LOGGER = logging.getLogger('retry-toolkit')
     LOG_LEVEL  = logging.INFO
     LOG_MSG_T  = '{event}'
 

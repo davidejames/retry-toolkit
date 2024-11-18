@@ -42,8 +42,8 @@ from .defaults import (
 )
 from ._utils import (
     _ensure_callable,
-    _process_subscriptions,
-    _publish,
+    PubSubManager,
+    _get_logging_subscribers,
 )
 from .constants import (
     Events,
@@ -59,6 +59,7 @@ def retry(
     exceptions : type(Exception) | ExceptionTuple | ExceptionFunc = None,
     class_f    = None,
     logger     = None,
+    logging_config = None,
     subscriptions = None,
     *args,
     **kwargs,
@@ -66,7 +67,8 @@ def retry(
     _class_f = class_f or Defaults.RETRY_CLASS
     _class   = Retry if _class_f is None else _class_f()
 
-    return _class(tries, backoff, exceptions, logger, subscriptions,
+    return _class(tries, backoff, exceptions, logger, logging_config,
+                  subscriptions,
                     *args, **kwargs)
 
 
@@ -74,13 +76,26 @@ def retry(
 # Retry Class
 #──────────────────────────────────────────────────────────────────────────────#
 class Retry:
-    def __init__(self, tries, backoff, exceptions, logger, subscriptions,
+    def __init__(self, tries, backoff, exceptions, logger, logging_config,
+                 subscriptions,
                 *args, **kwargs):
         self._tries      = tries
         self._backoff    = backoff
         self._exceptions = exceptions
 
-        self._event_subs = _process_subscriptions(Events, subscriptions)
+        self._pubsub = PubSubManager(Events, subscriptions)
+
+        self._log_subs = _get_logging_subscribers(
+                                    logging_config = logging_config,
+                                    logger         = logger,
+                                )
+
+    def subscribe(self, event, func):
+        return self._pubsub.subscribe(event, func)
+
+
+    def unsubscribe(self, event, func):
+        return self._pubsub.unsubscribe(event, func)
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def _result_is_success(self, result):
@@ -93,16 +108,14 @@ class Retry:
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
     def __iter__(self):
         '''starts a retry set'''
-        self.iter_start = True
-
+        self.iter_start      = True
         self.target_func     = False
         self.func_successful = False
-
-        self.done    = False
-        self.try_num = 0
-        self.n_tries = None
-        self.total_sleep = 0
-        self.exception_list = []
+        self.done            = False
+        self.try_num         = 0
+        self.n_tries         = None
+        self.total_sleep     = 0
+        self.exception_list  = []
 
         return self
 
@@ -125,6 +138,7 @@ class Retry:
         if self.try_num < self.n_tries:
             return self
 
+        self._event(Events.GIVEUP)
         self._giveup()
 
     #┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈#
@@ -236,6 +250,6 @@ class Retry:
             #start_time   = self.start_time,
             #current_time = self.current_time,
         )
-        _publish(event_id, self._event_subs, context)
+        self._pubsub.publish(event_id, context)
 
 
